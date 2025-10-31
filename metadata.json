@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Tic-Tac-Toe Multiplayer",
+  "description": "A sleek and modern real-time multiplayer Tic-Tac-Toe web application. Features a secure PIN-based login, a player lobby, and seamless gameplay powered by Node.js, Socket.IO, and React.",
+  "requestFramePermissions": []
+}

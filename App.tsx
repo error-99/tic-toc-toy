@@ -16,10 +16,20 @@ const App: React.FC = () => {
     const [incomingRequest, setIncomingRequest] = useState<IncomingRequest | null>(null);
     
     useEffect(() => {
-        const newSocket = io();
+        // Force websocket transport and use default path to fix connection issues
+        const newSocket = io({ transports: ['websocket'] });
         setSocket(newSocket);
 
-        newSocket.on('connect', () => console.log('Connected to server!'));
+        newSocket.on('connect', () => {
+            console.log('Connected to server!');
+            setError(''); // Clear error on successful connection
+        });
+        
+        newSocket.on('connect_error', (err) => {
+            console.error('Connection failed:', err.message);
+            setError('Failed to connect to the server. Please try again later.');
+        });
+
         newSocket.on('loginSuccess', (loggedInUser: User) => {
             setUser(loggedInUser);
             setError('');

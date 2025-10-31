@@ -6,23 +6,30 @@ const path = require('path');
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Allow connections from any origin
+    methods: ["GET", "POST"]
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, '')));
 
+const usersFilePath = path.join(__dirname, 'users.json');
 let usersData = {};
 try {
-    usersData = JSON.parse(fs.readFileSync('users.json', 'utf8'));
+    usersData = JSON.parse(fs.readFileSync(usersFilePath, 'utf8'));
     console.log("Loaded users.json successfully.");
 } catch (err) {
-    console.error('Could not read users.json, creating a default one. Please populate it.');
+    console.error(`Could not read ${usersFilePath}, creating a default one. Please populate it.`);
     usersData = { "1234": "Player1", "5678": "Player2" };
-    fs.writeFileSync('users.json', JSON.stringify(usersData, null, 2));
+    fs.writeFileSync(usersFilePath, JSON.stringify(usersData, null, 2));
 }
 
-const pinInUse = {}; // socket.id -> pin
+const pinsInUse = new Set();
+const socketToPin = new Map();
 const players = {}; // socket.id -> { id, name, room }
 const games = {}; // room -> { board, turn, players: {X, O}, winner }
 
@@ -58,12 +65,13 @@ io.on('connection', (socket) => {
         if (!usersData[pin]) {
             return socket.emit('loginError', 'Invalid PIN.');
         }
-        if (Object.values(pinInUse).includes(pin)) {
+        if (pinsInUse.has(pin)) {
              return socket.emit('loginError', 'This PIN is already in use.');
         }
 
         const name = usersData[pin];
-        pinInUse[socket.id] = pin;
+        pinsInUse.add(pin);
+        socketToPin.set(socket.id, pin);
         players[socket.id] = { id: socket.id, name, room: null };
 
         socket.emit('loginSuccess', { id: socket.id, name });
@@ -163,7 +171,12 @@ io.on('connection', (socket) => {
             }
         }
         
-        delete pinInUse[socket.id];
+        const pin = socketToPin.get(socket.id);
+        if (pin) {
+            pinsInUse.delete(pin);
+            socketToPin.delete(socket.id);
+        }
+
         delete players[socket.id];
         broadcastLobbyUpdate();
     });
